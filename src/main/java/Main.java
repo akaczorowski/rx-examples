@@ -8,6 +8,8 @@ public class Main {
 
 //        DelayExample.run();
 
-        ScanExample.run();
+//        ScanExample.run();
+
+        ObservableEmptyExample.run();
     }
 }
