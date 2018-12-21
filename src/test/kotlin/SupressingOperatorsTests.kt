@@ -1,8 +1,11 @@
 import io.reactivex.Completable
 import io.reactivex.Observable
 import io.reactivex.functions.Predicate
+import io.reactivex.schedulers.Schedulers
 import org.junit.Test
+import java.time.LocalTime
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class SupressingOperatorsTests {
 
@@ -91,7 +94,43 @@ class SupressingOperatorsTests {
 
     }
 
+    @Test
+    fun skipUntil(){
+        val observable1 = Observable.create<Int> { it ->
+            for (i in 0..10) {
+                Thread.sleep(1000)
+                it.onNext(i)
+            }
+            it.onComplete()
+        }
 
+        val observable2 = Observable.timer(3, TimeUnit.SECONDS)
+                .flatMap { _ -> Observable.just(11, 22, 33, 44, 55) }
 
+        observable1.skipUntil(observable2)
+                .subscribe { onNext -> println("OnNext:" + onNext!!) }
+    }
+
+    @Test
+    fun flatMapParallel(){
+
+        val numOfCores = Runtime.getRuntime().availableProcessors()
+        val assigner = AtomicInteger(0)
+
+         Observable.range(1, 10)
+                .groupBy { assigner.incrementAndGet() % numOfCores }
+                .flatMap { grp -> grp.observeOn(Schedulers.computation())
+                        .doOnNext { println(Thread.currentThread().name + " started. " + LocalTime.now().toString()) }
+                        .map(::timeConsumingOperation) }
+                .subscribe { println(Thread.currentThread().name + " done. " + LocalTime.now().toString()) }
+
+        Thread.sleep(20000)
+    }
+
+    fun timeConsumingOperation(value: Int): Int{
+        Thread.sleep(3000)
+
+        return value
+    }
 
 }
