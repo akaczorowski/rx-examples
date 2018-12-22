@@ -1,9 +1,8 @@
-import io.reactivex.Completable
 import io.reactivex.Observable
-import io.reactivex.functions.Predicate
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
 import java.time.LocalTime
+import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -80,14 +79,14 @@ class SupressingOperatorsTests {
     fun skipWhile() {
         println("First")
         Observable.interval(100, TimeUnit.MILLISECONDS)
-                .skipWhile{ it > 5 } // never skips, condition is false form first call
+                .skipWhile { it > 5 } // never skips, condition is false form first call
                 .subscribe(::println)
 
         Thread.sleep(1000L)
 
         println("First")
         Observable.interval(100, TimeUnit.MILLISECONDS)
-                .skipWhile{ it < 5 }
+                .skipWhile { it < 5 }
                 .subscribe(::println)
 
         Thread.sleep(1000L)
@@ -95,7 +94,7 @@ class SupressingOperatorsTests {
     }
 
     @Test
-    fun skipUntil(){
+    fun skipUntil() {
         val observable1 = Observable.create<Int> { it ->
             for (i in 0..10) {
                 Thread.sleep(1000)
@@ -112,23 +111,28 @@ class SupressingOperatorsTests {
     }
 
     @Test
-    fun flatMapParallel(){
+    fun flatMapParallel() {
 
         val numOfCores = Runtime.getRuntime().availableProcessors()
         val assigner = AtomicInteger(0)
 
-         Observable.range(1, 10)
+        Observable.range(500, 3)
                 .groupBy { assigner.incrementAndGet() % numOfCores }
-                .flatMap { grp -> grp.observeOn(Schedulers.computation())
-                        .doOnNext { println(Thread.currentThread().name + " started. " + LocalTime.now().toString()) }
-                        .map(::timeConsumingOperation) }
-                .subscribe { println(Thread.currentThread().name + " done. " + LocalTime.now().toString()) }
+                .doOnNext { println(Thread.currentThread().name + " dispatching work. " + LocalTime.now().toString()) }
+                .flatMap { grp ->
+                    grp.observeOn(Schedulers.computation())
+                            .doOnNext { println(Thread.currentThread().name + " started. " + LocalTime.now().toString()) }
+                            .map(::timeConsumingOperation)
+                }
+                .subscribe({ println(Thread.currentThread().name + " done, arg: $it, time:" + LocalTime.now().toString()) }, { println(it) })
 
-        Thread.sleep(20000)
+        Thread.sleep(6000)
+        println("All DONE. FINISHING...")
     }
 
-    fun timeConsumingOperation(value: Int): Int{
-        Thread.sleep(3000)
+    fun timeConsumingOperation(value: Int): Int {
+        println(Thread.currentThread().name + " computing, arg: $value")
+        Thread.sleep(Math.abs(Random().nextLong() % 5000))
 
         return value
     }
