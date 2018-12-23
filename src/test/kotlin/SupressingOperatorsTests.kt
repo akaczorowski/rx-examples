@@ -111,28 +111,58 @@ class SupressingOperatorsTests {
     }
 
     @Test
-    fun flatMapParallel() {
+    fun flatMapParallelWithSubscribeOn() {
 
         val numOfCores = Runtime.getRuntime().availableProcessors()
         val assigner = AtomicInteger(0)
 
         Observable.range(500, 3)
                 .groupBy { assigner.incrementAndGet() % numOfCores }
-                .doOnNext { println(Thread.currentThread().name + " dispatching work. " + LocalTime.now().toString()) }
+                .doOnNext { printMessage("dispatching work.") }
                 .flatMap { grp ->
-                    grp.observeOn(Schedulers.computation())
-                            .doOnNext { println(Thread.currentThread().name + " started. " + LocalTime.now().toString()) }
+                    grp
+                            .doOnNext { printMessage("before start.") }
+                            .subscribeOn(Schedulers.computation())
+                            .doOnNext { printMessage("started.") }
                             .map(::timeConsumingOperation)
                 }
-                .subscribe({ println(Thread.currentThread().name + " done, arg: $it, time:" + LocalTime.now().toString()) }, { println(it) })
+                .subscribe({ printMessage(" done, arg: $it, time:") }, { println(it) })
 
         Thread.sleep(6000)
         println("All DONE. FINISHING...")
     }
 
+    @Test
+    fun flatMapParallelWithObserveOn() {
+
+        val numOfCores = Runtime.getRuntime().availableProcessors()
+        val assigner = AtomicInteger(0)
+
+        Observable.range(500, 3)
+                .groupBy { assigner.incrementAndGet() % numOfCores }
+                .doOnNext { printMessage("dispatching work.") }
+                .flatMap { grp ->
+                    grp
+                            .doOnNext { printMessage("before start.") }
+                            .observeOn(Schedulers.computation())
+                            .doOnNext { printMessage("started.") }
+                            .map(::timeConsumingOperation)
+                }
+                .subscribe({ printMessage(" done, arg: $it, time:") }, { println(it) })
+
+        Thread.sleep(6000)
+        println("All DONE. FINISHING...")
+    }
+
+    fun printMessage(text: String) {
+        println(Thread.currentThread().name + " " + text + " " + LocalTime.now().toString())
+    }
+
     fun timeConsumingOperation(value: Int): Int {
-        println(Thread.currentThread().name + " computing, arg: $value")
-        Thread.sleep(Math.abs(Random().nextLong() % 5000))
+        val time = 500 + Math.abs(Random().nextLong() % 5000)
+        println(Thread.currentThread().name + " computing, arg: $value, last: $time s")
+        Thread.sleep(time)
+//        Thread.sleep(Math.abs(Random().nextLong() % 5000))
 
         return value
     }
