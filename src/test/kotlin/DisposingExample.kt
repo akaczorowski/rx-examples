@@ -84,9 +84,26 @@ class DisposingExample {
                     }
                 }
                 .doOnNext { println("Emiting: $it") }
-                .doOnTerminate { println("doOnTerminate") }
                 .doFinally { println("doFinally()") }
                 .doOnSubscribe { disposables.add(it) }
                 .doOnError { println("doOnError()") }
+                .doOnTerminate { println("doOnTerminate") }
+    }
+
+    @Test
+    fun disposeWhenDoFinallyIsCalled() {
+
+        val source = Observable.just(1, 2, 3)
+                .doOnComplete { println("onComplete()") }
+                .doFinally { println("doFinally()") }
+
+        val disposable = source.subscribe { println("Observer1 received $it") }
+
+        Thread.sleep(1000)
+
+        // source completes and doFinally is already called
+        disposable.dispose()
+
+
     }
 }
